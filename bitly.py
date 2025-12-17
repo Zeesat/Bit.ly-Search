@@ -26,37 +26,43 @@ print('''Pilih metode pencarian :
       5. Algoritma vokal''')
 
 ditemukan = []
-
+charset = string.ascii_uppercase + "0123456789"
 def gen_all(max_lenght=6):
-    charset = string.ascii_uppercase + "0123456789"
     for lenght in range (1, max_lenght + 1):
         for p in product(charset, repeat=lenght):
             yield ''.join(p)
 
-def cari_urut():
-    g = gen_all(99)
-    start = int(input("Mulai dari itirasi ke - "))
+# def skipping():
+#     g = gen_all(99)
+#     start = int(input("Mulai dari itirasi ke - "))
+#     for _ in range(start):
+#         next(g)
+#         print(f"Skipping {_} / {start}", end="\r")
 
-    for _ in range(start):
-        next(g)
-        print(f"Skipping {_} / {start}", end="\r")
-    print("")
-    print("-----")
-    session = requests.Session()
-    for i in range(start, 999999999):
-        url = link + (next(g))
-        r = session.head(url, allow_redirects=False)
-        tujuan = r.headers.get("Location")
-        print(f"Processing {i}", end="\r")
-        if tujuan and tujuan[0:panjang_target] == target:
-            try:
-                print(f"({i}) - {tujuan} /// {url}")
-            except:
-                continue
+#     print("")
+#     print("-----")
+
+session = requests.Session()
+def cari_urut(code):
+    url = link + code
+    r = session.head(url, allow_redirects=False)
+    if r.status_code in (301, 302):
+        location = r.headers.get("Location", "")
+        if location.startswith(target):
+            found = location
+            with open ("found.txt", "a", encoding="utf-8") as f:
+                f.write(found + "\n")
+                
+    print(url, location)
+    return r.status_code    
+
+
 
 
 pilihan = input("Pilihan Anda : ")
 
 if pilihan == "1":
-    with ThreadPoolExecutor(max_workers=50) as exe:
-        results = list(exe.map(cari_urut))
+    with ThreadPoolExecutor(max_workers=10) as exe:
+        for status_code in exe.map(cari_urut, gen_all()):
+            print(gen_all())
+            pass
