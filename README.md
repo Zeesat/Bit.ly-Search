@@ -1,38 +1,18 @@
 # Bit.ly Search
 
-Project ini dipisah ke struktur yang lebih standar agar mudah dikembangkan dan dirawat.
+This project is organized with a cleaner Python developer structure for easier maintenance.
 
-## Struktur
+## Run
 
-```
-.
-|-- bitly.py
-|-- data/
-|   `-- found.txt
-|-- requirements.txt
-|-- scripts/
-|   |-- generator_demo.py
-|   |-- progress_demo.py
-|   `-- request_library_demo.py
-|-- src/
-|   `-- bitly_search/
-|       |-- __init__.py
-|       `-- main.py
-`-- tests/
-```
-
-## Menjalankan
-
-1. Buat virtual environment.
-2. Install dependency:
+1. Create a virtual environment.
+2. Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Jalankan aplikasi:
+3. Run the app:
 
 ```bash
 python bitly.py
 ```
-
