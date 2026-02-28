@@ -2,6 +2,7 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from itertools import product
 from pathlib import Path
+from threading import Lock, local
 import string
 
 import requests
@@ -11,8 +12,30 @@ DEFAULT_TARGET_LINK = "https://drive.google.com/drive/"
 CHARSET = string.ascii_uppercase + string.digits
 MAX_WORKERS = 10
 FOUND_FILE = Path(__file__).resolve().parents[2] / "data" / "found.txt"
+REQUEST_TIMEOUT = 10
 
-session = requests.Session()
+_THREAD_LOCAL = local()
+_SESSION_REGISTRY: list[requests.Session] = []
+_SESSION_REGISTRY_LOCK = Lock()
+
+
+def get_worker_session() -> requests.Session:
+    session = getattr(_THREAD_LOCAL, "session", None)
+    if session is None:
+        session = requests.Session()
+        _THREAD_LOCAL.session = session
+        with _SESSION_REGISTRY_LOCK:
+            _SESSION_REGISTRY.append(session)
+    return session
+
+
+def close_worker_sessions() -> None:
+    with _SESSION_REGISTRY_LOCK:
+        sessions = list(_SESSION_REGISTRY)
+        _SESSION_REGISTRY.clear()
+
+    for session in sessions:
+        session.close()
 
 
 def gen_all(max_length: int = 6):
@@ -21,19 +44,20 @@ def gen_all(max_length: int = 6):
             yield "".join(part)
 
 
-def save_found(location: str) -> None:
+def save_found(location: str, url: str) -> None:
     FOUND_FILE.parent.mkdir(parents=True, exist_ok=True)
     with FOUND_FILE.open("a", encoding="utf-8") as file:
-        file.write(location + "\n")
+        file.write(location + " - " + url + "\n")
 
 
 def cari_urut(code: str, link: str, target: str) -> int:
     url = link + code
-    response = session.head(url, allow_redirects=False)
+    session = get_worker_session()
+    response = session.head(url, allow_redirects=False, timeout=REQUEST_TIMEOUT)
     location = response.headers.get("Location", "")
 
     if response.status_code in (301, 302) and location.startswith(target):
-        save_found(location)
+        save_found(location, url)
 
     print(url, location)
     return response.status_code
@@ -66,9 +90,12 @@ def main() -> None:
         return
 
     search_func = partial(cari_urut, link=link, target=target)
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        for _ in executor.map(search_func, gen_all()):
-            pass
+    try:
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            for _ in executor.map(search_func, gen_all()):
+                pass
+    finally:
+        close_worker_sessions()
 
 
 if __name__ == "__main__":
